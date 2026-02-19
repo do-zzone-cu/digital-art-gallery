@@ -1,0 +1,84 @@
+// ===================================================
+// Prisma Schema - User & Artwork 모델 정의
+// PostgreSQL 데이터베이스와 연결
+// ===================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 사용자 모델: NextAuth 어댑터 호환
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String    // bcrypt 해시된 비밀번호
+  name          String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 관계: 사용자가 업로드한 작품들
+  artworks      Artwork[]
+  accounts      Account[]
+  sessions      Session[]
+}
+
+// 작품 모델: 이미지 URL + 사용자 관계
+model Artwork {
+  id            String    @id @default(cuid())
+  title         String
+  description   String?
+  imageUrl      String    // /uploads/xxx.jpg 경로
+  width         Int       @default(0)
+  height        Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 관계: 업로드한 사용자
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+}
+
+// NextAuth 어댑터용 모델들
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
