@@ -1,0 +1,56 @@
+# ===================================================
+# Docker Compose - Next.js + PostgreSQL
+# `docker-compose up` 한 방에 전체 스택 실행
+#
+# 볼륨:
+#   - postgres_data: DB 데이터 영구 저장
+#   - upload_data: 업로드된 이미지 영구 저장
+# ===================================================
+
+services:
+  # ─── PostgreSQL 데이터베이스 ───
+  db:
+    image: postgres:16-alpine
+    container_name: artium-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: artium
+      POSTGRES_PASSWORD: artium_secret_2024
+      POSTGRES_DB: artium_gallery
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U artium -d artium_gallery"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ─── Next.js 앱 서버 ───
+  app:
+    container_name: artium-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://artium:artium_secret_2024@db:5432/artium_gallery
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: my-super-secret-key-change-in-production-2024
+      AUTH_TRUST_HOST: "true"
+    volumes:
+      # 업로드된 이미지를 호스트 볼륨에 영구 저장
+      - upload_data:/app/public/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+# ─── 영구 볼륨 정의 ───
+volumes:
+  postgres_data:
+    driver: local
+  upload_data:
+    driver: local
